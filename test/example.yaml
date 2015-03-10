@@ -1,0 +1,11 @@
+base_url: http://nopaste.example.com
+listen: 127.0.0.1:3000
+data_dir: /var/tmp/nopaste
+irc:
+  host: localhost
+  port: 6666
+  secure: false
+  channels:
+    - '#foo'
+    - '#bar'
+  password: secret
