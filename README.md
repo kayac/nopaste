@@ -3,6 +3,13 @@ nopaste
 
 nopaste http server & IRC agent.
 
+Install
+------
+
+```
+$ go get github.com/kayac/nopaste/cmd/nopaste
+```
+
 Usage
 ------
 
