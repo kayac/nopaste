@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -38,7 +37,8 @@ func rootHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 		return
 	}
 	if err := tmpl.ExecuteTemplate(w, "index", config.IRC); err != nil {
-		serverError(w, err)
+		log.Println(err)
+		serverError(w)
 	}
 }
 
@@ -49,7 +49,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	id := p[len(p)-1]
-	f, err := os.Open(config.DataDir + "/" + id)
+	f, err := os.Open(config.DataFilePath(id))
 	if err != nil {
 		log.Println(err)
 		http.NotFound(w, req)
@@ -68,22 +68,25 @@ func saveContent(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 	hex := fmt.Sprintf("%x", md5.Sum(data))
 	id := hex[0:10]
 	log.Println("save", id)
-	err := ioutil.WriteFile(config.DataDir+"/"+id, data, 0644)
+	err := ioutil.WriteFile(config.DataFilePath(id), data, 0644)
 	if err != nil {
 		log.Println(err)
-		serverError(w, err)
+		serverError(w)
 		return
 	}
 	if channel := req.FormValue("channel"); channel != "" {
 		// post to irc
 		summary := req.FormValue("summary")
 		nick := req.FormValue("nick")
-		notice, _ := strconv.ParseBool(req.FormValue("notice"))
 		url := config.BaseURL + Root + "/" + id
 		msg := IRCMessage{
 			Channel: channel,
 			Text:    fmt.Sprintf("%s %s %s", nick, summary, url),
-			Notice:  notice,
+			Notice:  false,
+		}
+		if req.FormValue("notice") != "" {
+			// true if 'notice' argument has any value (includes '0', 'false', 'null'...)
+			msg.Notice = true
 		}
 		ch <- msg
 	}
@@ -91,8 +94,7 @@ func saveContent(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 	return
 }
 
-func serverError(w http.ResponseWriter, err error) {
-	log.Printf("error: %s", err)
+func serverError(w http.ResponseWriter) {
 	code := http.StatusInternalServerError
 	http.Error(w, http.StatusText(code), code)
 }

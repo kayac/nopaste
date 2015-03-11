@@ -1,6 +1,7 @@
 package nopaste
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,6 +25,10 @@ type IRCConfig struct {
 	Password string   `yaml:"password"`
 	Nick     string   `yaml:"nick"`
 	Channels []string `yaml:"channels"`
+}
+
+func (c *Config) DataFilePath(id string) string {
+	return fmt.Sprintf("%s/%s.txt", c.DataDir, id)
 }
 
 func (c *Config) AddChannel(channel string) {
