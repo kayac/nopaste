@@ -44,7 +44,7 @@ input, select {
     <p>
        <label for="channel">channel:</label>
        <select id="channel" name="channel">
-         <option>(None)</option>
+         <option value="">(None)</option>
        {{range .Channels}}
          <option value="{{.}}">{{.}}</option>
        {{end}}

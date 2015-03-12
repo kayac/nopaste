@@ -26,7 +26,9 @@ func Run(configFile string) error {
 	http.HandleFunc(Root, func(w http.ResponseWriter, req *http.Request) {
 		rootHandler(w, req, ch)
 	})
-	http.HandleFunc(Root+"/", serveHandler)
+	http.HandleFunc(Root+"/", func(w http.ResponseWriter, req *http.Request) {
+		serveHandler(w, req, ch)
+	})
 	log.Fatal(http.ListenAndServe(config.Listen, nil))
 	return nil
 }
@@ -42,7 +44,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 	}
 }
 
-func serveHandler(w http.ResponseWriter, req *http.Request) {
+func serveHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 	p := strings.Split(req.URL.Path, "/")
 	if len(p) != 3 {
 		http.NotFound(w, req)
@@ -50,10 +52,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	id := p[len(p)-1]
 	if id == "" {
-		if err := tmpl.ExecuteTemplate(w, "index", config.IRC); err != nil {
-			log.Println(err)
-			serverError(w)
-		}
+		rootHandler(w, req, ch)
 		return
 	}
 	f, err := os.Open(config.DataFilePath(id))
