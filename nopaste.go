@@ -49,6 +49,13 @@ func serveHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	id := p[len(p)-1]
+	if id == "" {
+		if err := tmpl.ExecuteTemplate(w, "index", config.IRC); err != nil {
+			log.Println(err)
+			serverError(w)
+		}
+		return
+	}
 	f, err := os.Open(config.DataFilePath(id))
 	if err != nil {
 		log.Println(err)
@@ -74,7 +81,7 @@ func saveContent(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 		serverError(w)
 		return
 	}
-	if channel := req.FormValue("channel"); channel != "" {
+	if channel := req.FormValue("channel"); strings.Index(channel, "#") == 0 {
 		// post to irc
 		summary := req.FormValue("summary")
 		nick := req.FormValue("nick")
