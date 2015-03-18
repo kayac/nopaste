@@ -21,7 +21,7 @@ func Run(configFile string) error {
 	if err != nil {
 		return err
 	}
-	ch := make(chan IRCMessage)
+	ch := make(chan IRCMessage, 64)
 	go RunIRCAgent(config, ch)
 	http.HandleFunc(Root, func(w http.ResponseWriter, req *http.Request) {
 		rootHandler(w, req, ch)
@@ -94,7 +94,11 @@ func saveContent(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 			// true if 'notice' argument has any value (includes '0', 'false', 'null'...)
 			msg.Notice = true
 		}
-		ch <- msg
+		select {
+		case ch <- msg:
+		default:
+			log.Println("Can't send msg to IRC")
+		}
 	}
 	http.Redirect(w, req, Root+"/"+id, http.StatusFound)
 	return

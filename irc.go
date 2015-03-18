@@ -26,9 +26,21 @@ func RunIRCAgent(c *Config, ch chan IRCMessage) {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		joined := make(map[string]bool)
-		for {
-			msg := <-ch
+		done := make(chan interface{})
+		go sendMsgToIRC(c, agent, ch, done)
+		agent.Loop()
+		close(done)
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func sendMsgToIRC(c *Config, agent *irc.Connection, ch chan IRCMessage, done chan interface{}) {
+	joined := make(map[string]bool)
+	for {
+		select {
+		case <-done:
+			return
+		case msg := <-ch:
 			if !joined[msg.Channel] {
 				log.Println("join", msg.Channel)
 				agent.Join(msg.Channel)
