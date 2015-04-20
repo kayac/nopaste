@@ -162,8 +162,8 @@ func snsHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 		var out bytes.Buffer
 		json.Indent(&out, []byte(n.Message), "", "  ")
 		np := nopasteContent{
-			Text:    n.Message,
-			Summary: out.String(),
+			Text:    out.String(),
+			Summary: n.Subject + " " + n.TopicArn,
 			Notice:  "",
 			Channel: "#" + channel,
 		}
