@@ -154,8 +154,8 @@ func snsHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 				break
 			}
 		}
-		p := strings.SplitN(req.URL.Path, "/", 3)
-		channel := p[2]
+		p := strings.Split(req.URL.Path, "/")
+		channel := p[len(p)-1]
 		if channel == "" {
 			break
 		}
