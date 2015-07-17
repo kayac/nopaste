@@ -33,7 +33,7 @@ func Run(configFile string) error {
 	if err != nil {
 		return err
 	}
-	ch := make(chan IRCMessage, 64)
+	ch := make(chan IRCMessage, MsgBufferLen)
 	go RunIRCAgent(config, ch)
 	http.HandleFunc(Root, func(w http.ResponseWriter, req *http.Request) {
 		rootHandler(w, req, ch)

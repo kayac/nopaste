@@ -8,6 +8,14 @@ import (
 	irc "github.com/thoj/go-ircevent"
 )
 
+const (
+	MsgBufferLen = 100
+)
+
+var (
+	IRCThrottleWindow = 1 * time.Second
+)
+
 type IRCMessage struct {
 	Channel string
 	Notice  bool
@@ -35,23 +43,52 @@ func RunIRCAgent(c *Config, ch chan IRCMessage) {
 }
 
 func sendMsgToIRC(c *Config, agent *irc.Connection, ch chan IRCMessage, done chan interface{}) {
-	joined := make(map[string]bool)
+	joined := make(map[string]chan IRCMessage)
 	for {
 		select {
 		case <-done:
 			return
 		case msg := <-ch:
-			if !joined[msg.Channel] {
+			if _, ok := joined[msg.Channel]; !ok {
 				log.Println("join", msg.Channel)
 				agent.Join(msg.Channel)
-				joined[msg.Channel] = true
+				joined[msg.Channel] = make(chan IRCMessage, MsgBufferLen)
+				go sendMsgToIRCChannel(agent, joined[msg.Channel], done)
 				c.AddChannel(msg.Channel)
 			}
+			select {
+			case joined[msg.Channel] <- msg:
+			default:
+				log.Println("Can't send msg to IRC. Channel buffer flooding.")
+			}
+		}
+	}
+}
+
+func sendMsgToIRCChannel(agent *irc.Connection, ch chan IRCMessage, done chan interface{}) {
+	lastPostedAt := time.Now()
+	for {
+		select {
+		case <-done:
+			return
+		case msg := <-ch:
+			throttle(lastPostedAt, IRCThrottleWindow)
 			if msg.Notice {
 				agent.Notice(msg.Channel, msg.Text)
 			} else {
 				agent.Privmsg(msg.Channel, msg.Text)
 			}
+			lastPostedAt = time.Now()
 		}
+	}
+}
+
+func throttle(last time.Time, window time.Duration) {
+	now := time.Now()
+	diff := now.Sub(last)
+	if diff < window {
+		// throttle
+		log.Println("throttled. sleeping", window-diff)
+		time.Sleep(window - diff)
 	}
 }
