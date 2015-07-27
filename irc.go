@@ -16,13 +16,39 @@ var (
 	IRCThrottleWindow = 1 * time.Second
 )
 
+type MessageChan interface {
+	Post(np nopasteContent, url string)
+}
+
 type IRCMessage struct {
 	Channel string
 	Notice  bool
 	Text    string
 }
 
+type IRCMessageChan chan IRCMessage
+
+func (ch IRCMessageChan) Post(np nopasteContent, url string) {
+	summary := np.Summary
+	nick := np.Nick
+	msg := IRCMessage{
+		Channel: np.Channel,
+		Text:    fmt.Sprintf("%s %s %s", nick, summary, url),
+		Notice:  false,
+	}
+	if np.Notice != "" {
+		// true if 'notice' argument has any value (includes '0', 'false', 'null'...)
+		msg.Notice = true
+	}
+	select {
+	case ch <- msg:
+	default:
+		log.Println("Can't send msg to IRC")
+	}
+}
+
 func RunIRCAgent(c *Config, ch chan IRCMessage) {
+	log.Println("running irc agent")
 	for {
 		agent := irc.IRC(c.IRC.Nick, c.IRC.Nick)
 		agent.UseTLS = c.IRC.Secure

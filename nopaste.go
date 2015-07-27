@@ -20,11 +20,12 @@ const Root = "/np"
 var config *Config
 
 type nopasteContent struct {
-	Text    string
-	Channel string
-	Summary string
-	Nick    string
-	Notice  string
+	Text      string
+	Channel   string
+	Summary   string
+	Nick      string
+	Notice    string
+	IconEmoji string
 }
 
 func Run(configFile string) error {
@@ -33,31 +34,42 @@ func Run(configFile string) error {
 	if err != nil {
 		return err
 	}
-	ch := make(chan IRCMessage, MsgBufferLen)
-	go RunIRCAgent(config, ch)
+	var chs []MessageChan
+	if config.IRC != nil {
+		ircCh := make(IRCMessageChan, MsgBufferLen)
+		chs = append(chs, ircCh)
+		go RunIRCAgent(config, ircCh)
+	}
+	if config.Slack != nil {
+		slackCh := make(SlackMessageChan, MsgBufferLen)
+		chs = append(chs, slackCh)
+		go RunSlackAgent(config, slackCh)
+	}
+
 	http.HandleFunc(Root, func(w http.ResponseWriter, req *http.Request) {
-		rootHandler(w, req, ch)
+		rootHandler(w, req, chs)
 	})
 	http.HandleFunc(Root+"/", func(w http.ResponseWriter, req *http.Request) {
-		serveHandler(w, req, ch)
+		serveHandler(w, req, chs)
 	})
 	http.HandleFunc(Root+"/amazon-sns/", func(w http.ResponseWriter, req *http.Request) {
-		snsHandler(w, req, ch)
+		snsHandler(w, req, chs)
 	})
 	log.Fatal(http.ListenAndServe(config.Listen, nil))
 	return nil
 }
 
-func rootHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
+func rootHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	if req.Method == "POST" {
 		np := nopasteContent{
-			Text:    req.FormValue("text"),
-			Summary: req.FormValue("summary"),
-			Notice:  req.FormValue("notice"),
-			Channel: req.FormValue("channel"),
-			Nick:    req.FormValue("nick"),
+			Text:      req.FormValue("text"),
+			Summary:   req.FormValue("summary"),
+			Notice:    req.FormValue("notice"),
+			Channel:   req.FormValue("channel"),
+			Nick:      req.FormValue("nick"),
+			IconEmoji: req.FormValue("icon_emoji"),
 		}
-		path, code := saveContent(np, ch)
+		path, code := saveContent(np, chs)
 		if code == http.StatusFound {
 			http.Redirect(w, req, path, code)
 		} else {
@@ -65,13 +77,13 @@ func rootHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 		}
 		return
 	}
-	if err := tmpl.ExecuteTemplate(w, "index", config.IRC); err != nil {
+	if err := tmpl.ExecuteTemplate(w, "index", config); err != nil {
 		log.Println(err)
 		serverError(w, 500)
 	}
 }
 
-func serveHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
+func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	p := strings.Split(req.URL.Path, "/")
 	if len(p) != 3 {
 		http.NotFound(w, req)
@@ -79,7 +91,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) 
 	}
 	id := p[len(p)-1]
 	if id == "" {
-		rootHandler(w, req, ch)
+		rootHandler(w, req, chs)
 		return
 	}
 	f, err := os.Open(config.DataFilePath(id))
@@ -92,7 +104,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) 
 	io.Copy(w, f)
 }
 
-func saveContent(np nopasteContent, ch chan IRCMessage) (string, int) {
+func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	if np.Text == "" {
 		return Root, http.StatusFound
 	}
@@ -106,23 +118,9 @@ func saveContent(np nopasteContent, ch chan IRCMessage) (string, int) {
 		return Root, 500
 	}
 	if strings.Index(np.Channel, "#") == 0 {
-		// post to irc
-		summary := np.Summary
-		nick := np.Nick
 		url := config.BaseURL + Root + "/" + id
-		msg := IRCMessage{
-			Channel: np.Channel,
-			Text:    fmt.Sprintf("%s %s %s", nick, summary, url),
-			Notice:  false,
-		}
-		if np.Notice != "" {
-			// true if 'notice' argument has any value (includes '0', 'false', 'null'...)
-			msg.Notice = true
-		}
-		select {
-		case ch <- msg:
-		default:
-			log.Println("Can't send msg to IRC")
+		for _, ch := range chs {
+			ch.Post(np, url)
 		}
 	}
 	return Root + "/" + id, http.StatusFound
@@ -135,7 +133,7 @@ func serverError(w http.ResponseWriter, code int) {
 	http.Error(w, http.StatusText(code), code)
 }
 
-func snsHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
+func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	if req.Method != "POST" {
 		serverError(w, 400)
 		return
@@ -162,12 +160,14 @@ func snsHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
 		var out bytes.Buffer
 		json.Indent(&out, []byte(n.Message), "", "  ")
 		np := nopasteContent{
-			Text:    out.String(),
-			Summary: n.Subject + " " + n.TopicArn,
-			Notice:  "",
-			Channel: "#" + channel,
+			Text:      out.String(),
+			Summary:   n.Subject + " " + n.TopicArn,
+			Notice:    "",
+			Channel:   "#" + channel,
+			IconEmoji: ":amazonsns:",
+			Nick:      "AmazonSNS",
 		}
-		saveContent(np, ch)
+		saveContent(np, chs)
 	}
 	io.WriteString(w, "OK")
 }

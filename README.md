@@ -32,9 +32,11 @@ irc:
   secure: false
   password: secret
   nick: npbot
-  channels:
-  - '#general'
-  - '#infra'
+slack:
+  webhook_url: https://hooks.slack.com/services/XXX/YYY/zzzz
+channels:
+- '#general'
+- '#infra'
 ```
 
 nopaste runs http server on `http://#{listen}/np`.

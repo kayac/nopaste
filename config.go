@@ -10,21 +10,26 @@ import (
 )
 
 type Config struct {
-	BaseURL  string    `yaml:"base_url"`
-	Listen   string    `yaml:"listen"`
-	DataDir  string    `yaml:"data_dir"`
-	IRC      IRCConfig `yaml:"irc"`
+	BaseURL  string       `yaml:"base_url"`
+	Listen   string       `yaml:"listen"`
+	DataDir  string       `yaml:"data_dir"`
+	IRC      *IRCConfig   `yaml:"irc"`
+	Slack    *SlackConfig `yaml:"slack"`
 	filePath string
+	Channels []string `yaml:"channels"`
 }
 
 type IRCConfig struct {
-	Host     string   `yaml:"host"`
-	Port     int      `yaml:"port"`
-	Secure   bool     `yaml:"secure"`
-	Debug    bool     `yaml:"debug"`
-	Password string   `yaml:"password"`
-	Nick     string   `yaml:"nick"`
-	Channels []string `yaml:"channels"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Secure   bool   `yaml:"secure"`
+	Debug    bool   `yaml:"debug"`
+	Password string `yaml:"password"`
+	Nick     string `yaml:"nick"`
+}
+
+type SlackConfig struct {
+	WebhookURL string `yaml:"webhook_url"`
 }
 
 func (c *Config) DataFilePath(id string) string {
@@ -32,12 +37,12 @@ func (c *Config) DataFilePath(id string) string {
 }
 
 func (c *Config) AddChannel(channel string) {
-	for _, _channel := range c.IRC.Channels {
+	for _, _channel := range c.Channels {
 		if channel == _channel {
 			return
 		}
 	}
-	c.IRC.Channels = append(c.IRC.Channels, channel)
+	c.Channels = append(c.Channels, channel)
 	err := c.Save()
 	if err != nil {
 		log.Println(err)
