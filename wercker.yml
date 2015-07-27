@@ -1,4 +1,4 @@
-box: wercker/golang
+box: golang
 build:
   steps:
     - wercker/setup-go-workspace@1.2.1
@@ -6,4 +6,4 @@ build:
         name: make
         code: |
           make get-deps
-          make
+          make all
