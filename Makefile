@@ -15,3 +15,7 @@ binary:
 
 clean:
 	rm -f pkg/*
+
+all:
+	cd cmd/nopaste && go build
+	cd cmd/irc-msgr && go build
