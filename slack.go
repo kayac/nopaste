@@ -23,7 +23,7 @@ type SlackMessage struct {
 
 type SlackMessageChan chan SlackMessage
 
-func (ch SlackMessageChan) Post(np nopasteContent, url string) {
+func (ch SlackMessageChan) PostNopaste(np nopasteContent, url string) {
 	summary := np.Summary
 	nick := np.Nick
 	var text string
@@ -37,6 +37,24 @@ func (ch SlackMessageChan) Post(np nopasteContent, url string) {
 		Username:  nick,
 		Text:      text,
 		IconEmoji: np.IconEmoji,
+	}
+	select {
+	case ch <- msg:
+	default:
+		log.Println("Can't send msg to Slack")
+	}
+}
+
+func (ch SlackMessageChan) PostMsgr(req *http.Request) {
+	username := req.FormValue("username")
+	if username == "" {
+		username = "msgr"
+	}
+	msg := SlackMessage{
+		Channel:   req.FormValue("channel"),
+		Text:      req.FormValue("msg"),
+		Username:  username,
+		IconEmoji: req.FormValue("icon_emoji"),
 	}
 	select {
 	case ch <- msg:

@@ -120,7 +120,7 @@ func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	if strings.Index(np.Channel, "#") == 0 {
 		url := config.BaseURL + Root + "/" + id
 		for _, ch := range chs {
-			ch.Post(np, url)
+			ch.PostNopaste(np, url)
 		}
 	}
 	return Root + "/" + id, http.StatusFound

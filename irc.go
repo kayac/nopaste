@@ -3,6 +3,7 @@ package nopaste
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	irc "github.com/thoj/go-ircevent"
@@ -17,7 +18,8 @@ var (
 )
 
 type MessageChan interface {
-	Post(np nopasteContent, url string)
+	PostNopaste(np nopasteContent, url string)
+	PostMsgr(np *http.Request)
 }
 
 type IRCMessage struct {
@@ -28,7 +30,7 @@ type IRCMessage struct {
 
 type IRCMessageChan chan IRCMessage
 
-func (ch IRCMessageChan) Post(np nopasteContent, url string) {
+func (ch IRCMessageChan) PostNopaste(np nopasteContent, url string) {
 	summary := np.Summary
 	nick := np.Nick
 	msg := IRCMessage{
@@ -39,6 +41,22 @@ func (ch IRCMessageChan) Post(np nopasteContent, url string) {
 	if np.Notice != "" {
 		// true if 'notice' argument has any value (includes '0', 'false', 'null'...)
 		msg.Notice = true
+	}
+	select {
+	case ch <- msg:
+	default:
+		log.Println("Can't send msg to IRC")
+	}
+}
+
+func (ch IRCMessageChan) PostMsgr(req *http.Request) {
+	msg := IRCMessage{
+		Channel: req.FormValue("channel"),
+		Text:    req.FormValue("msg"),
+		Notice:  true,
+	}
+	if _notice := req.FormValue("notice"); _notice == "" || _notice == "0" {
+		msg.Notice = false
 	}
 	select {
 	case ch <- msg:
