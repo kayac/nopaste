@@ -3,6 +3,7 @@ package nopaste
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	irc "github.com/thoj/go-ircevent"
@@ -16,13 +17,56 @@ var (
 	IRCThrottleWindow = 1 * time.Second
 )
 
+type MessageChan interface {
+	PostNopaste(np nopasteContent, url string)
+	PostMsgr(np *http.Request)
+}
+
 type IRCMessage struct {
 	Channel string
 	Notice  bool
 	Text    string
 }
 
+type IRCMessageChan chan IRCMessage
+
+func (ch IRCMessageChan) PostNopaste(np nopasteContent, url string) {
+	summary := np.Summary
+	nick := np.Nick
+	msg := IRCMessage{
+		Channel: np.Channel,
+		Text:    fmt.Sprintf("%s %s %s", nick, summary, url),
+		Notice:  false,
+	}
+	if np.Notice != "" {
+		// true if 'notice' argument has any value (includes '0', 'false', 'null'...)
+		msg.Notice = true
+	}
+	select {
+	case ch <- msg:
+	default:
+		log.Println("Can't send msg to IRC")
+	}
+}
+
+func (ch IRCMessageChan) PostMsgr(req *http.Request) {
+	msg := IRCMessage{
+		Channel: req.FormValue("channel"),
+		Text:    req.FormValue("msg"),
+		Notice:  true,
+	}
+	if _notice := req.FormValue("notice"); _notice == "" || _notice == "0" {
+		msg.Notice = false
+	}
+	select {
+	case ch <- msg:
+	default:
+		log.Println("Can't send msg to IRC")
+	}
+}
+
 func RunIRCAgent(c *Config, ch chan IRCMessage) {
+	log.Println("running irc agent")
 	for {
 		agent := irc.IRC(c.IRC.Nick, c.IRC.Nick)
 		agent.UseTLS = c.IRC.Secure

@@ -13,16 +13,25 @@ func RunMsgr(configFile string) error {
 	if err != nil {
 		return err
 	}
-	ch := make(chan IRCMessage)
-	go RunIRCAgent(config, ch)
+	var chs []MessageChan
+	if config.IRC != nil {
+		ircCh := make(IRCMessageChan, MsgBufferLen)
+		chs = append(chs, ircCh)
+		go RunIRCAgent(config, ircCh)
+	}
+	if config.Slack != nil {
+		slackCh := make(SlackMessageChan, MsgBufferLen)
+		chs = append(chs, slackCh)
+		go RunSlackAgent(config, slackCh)
+	}
 	http.HandleFunc(MsgrRoot+"/post", func(w http.ResponseWriter, req *http.Request) {
-		msgrPostHandler(w, req, ch)
+		msgrPostHandler(w, req, chs)
 	})
 	log.Fatal(http.ListenAndServe(config.Listen, nil))
 	return nil
 }
 
-func msgrPostHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessage) {
+func msgrPostHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	channel := req.FormValue("channel")
 	msg := req.FormValue("msg")
 	if channel == "" || msg == "" || req.Method != "POST" {
@@ -30,17 +39,9 @@ func msgrPostHandler(w http.ResponseWriter, req *http.Request, ch chan IRCMessag
 		http.Error(w, http.StatusText(code), code)
 		return
 	}
-	ircMsg := IRCMessage{
-		Channel: channel,
-		Text:    msg,
-		Notice:  true,
+	for _, ch := range chs {
+		ch.PostMsgr(req)
 	}
-	if _notice := req.FormValue("notice"); _notice == "" || _notice == "0" {
-		ircMsg.Notice = false
-	}
-	log.Printf("%#v", ircMsg)
-	ch <- ircMsg
-
 	code := http.StatusCreated
 	http.Error(w, http.StatusText(code), code)
 }
