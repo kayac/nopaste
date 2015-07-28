@@ -5,13 +5,18 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"time"
 )
 
+const SlackMaxBackOff = 3600
+
 var (
 	SlackThrottleWindow = 1 * time.Second
+	SlackInitialBackOff = 30
+	Epoch               = time.Unix(0, 0)
 )
 
 type SlackMessage struct {
@@ -68,24 +73,23 @@ type SlackAgent struct {
 	client     *http.Client
 }
 
-func (a *SlackAgent) Post(m SlackMessage) {
+func (a *SlackAgent) Post(m SlackMessage) error {
 	payload, _ := json.Marshal(&m)
 	v := url.Values{}
 	v.Set("payload", string(payload))
 	log.Println("post to slack", a, string(payload))
 	resp, err := a.client.PostForm(a.WebhookURL, v)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		return
+		return nil
 	}
-	if body, err := ioutil.ReadAll(resp.Body); err != nil {
-		log.Println("failed post to slack:", body)
+	if body, err := ioutil.ReadAll(resp.Body); err == nil {
+		return fmt.Errorf("failed post to slack:%s", body)
 	} else {
-		log.Println(err)
+		return err
 	}
 }
 
@@ -114,12 +118,27 @@ func RunSlackAgent(c *Config, ch chan SlackMessage) {
 
 func sendMsgToSlackChannel(agent *SlackAgent, ch chan SlackMessage) {
 	lastPostedAt := time.Now()
+	ignoreUntil := Epoch
+	backoff := SlackInitialBackOff
 	for {
 		select {
 		case msg := <-ch:
+			if time.Now().Before(ignoreUntil) {
+				// ignored
+				continue
+			}
 			throttle(lastPostedAt, SlackThrottleWindow)
-			agent.Post(msg)
+			err := agent.Post(msg)
 			lastPostedAt = time.Now()
+			if err != nil {
+				backoff = int(math.Min(float64(backoff)*2, SlackMaxBackOff))
+				d, _ := time.ParseDuration(fmt.Sprintf("%ds", backoff))
+				ignoreUntil = lastPostedAt.Add(d)
+				log.Println(err, msg.Channel, "will be ignored until", ignoreUntil)
+			} else if !ignoreUntil.Equal(Epoch) {
+				ignoreUntil = Epoch
+				backoff = SlackInitialBackOff
+			}
 		}
 	}
 }
