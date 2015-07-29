@@ -24,3 +24,6 @@ _testmain.go
 *.prof
 
 *~
+cmd/nopaste/nopaste
+cmd/irc-msgr/irc-msgr
+cmd/nopaste-cli/nopaste-cli
