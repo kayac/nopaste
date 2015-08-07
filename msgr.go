@@ -42,6 +42,6 @@ func msgrPostHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan
 	for _, ch := range chs {
 		ch.PostMsgr(req)
 	}
-	code := http.StatusCreated
-	http.Error(w, http.StatusText(code), code)
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte{})
 }
