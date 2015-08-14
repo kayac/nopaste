@@ -158,10 +158,13 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			break
 		}
 		var out bytes.Buffer
+		out.WriteString(n.Type)
+		out.WriteString(n.TopicArn)
+		out.WriteString("\n")
 		json.Indent(&out, []byte(n.Message), "", "  ")
 		np := nopasteContent{
 			Text:      out.String(),
-			Summary:   n.Subject + " " + n.TopicArn,
+			Summary:   n.Subject,
 			Notice:    "",
 			Channel:   "#" + channel,
 			IconEmoji: ":amazonsns:",
