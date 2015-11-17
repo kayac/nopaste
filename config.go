@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
