@@ -22,7 +22,8 @@ var (
 type SlackMessage struct {
 	Channel   string `json:"channel"`
 	Text      string `json:"text"`
-	IconEmoji string `json:"icon_emoji"`
+	IconEmoji string `json:"icon_emoji,omitempty"`
+	IconURL   string `json:"icon_url,omitempty"`
 	Username  string `json:"username"`
 }
 
@@ -42,6 +43,7 @@ func (ch SlackMessageChan) PostNopaste(np nopasteContent, url string) {
 		Username:  nick,
 		Text:      text,
 		IconEmoji: np.IconEmoji,
+		IconURL:   np.IconURL,
 	}
 	select {
 	case ch <- msg:
@@ -60,6 +62,7 @@ func (ch SlackMessageChan) PostMsgr(req *http.Request) {
 		Text:      req.FormValue("msg"),
 		Username:  username,
 		IconEmoji: req.FormValue("icon_emoji"),
+		IconURL:   req.FormValue("icon_url"),
 	}
 	select {
 	case ch <- msg:

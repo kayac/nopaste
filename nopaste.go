@@ -26,6 +26,7 @@ type nopasteContent struct {
 	Nick      string
 	Notice    string
 	IconEmoji string
+	IconURL   string
 }
 
 func Run(configFile string) error {
@@ -68,6 +69,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			Channel:   req.FormValue("channel"),
 			Nick:      req.FormValue("nick"),
 			IconEmoji: req.FormValue("icon_emoji"),
+			IconURL:   req.FormValue("icon_url"),
 		}
 		path, code := saveContent(np, chs)
 		if code == http.StatusFound {
