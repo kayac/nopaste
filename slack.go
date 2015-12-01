@@ -64,10 +64,10 @@ func (ch SlackMessageChan) PostMsgr(req *http.Request) {
 		Username:  username,
 		IconEmoji: req.FormValue("icon_emoji"),
 		IconURL:   req.FormValue("icon_url"),
-		LinkNames: 1,
+		LinkNames: 0, // default notice as IRC
 	}
-	if _notice := req.FormValue("notice"); _notice == "1" {
-		msg.LinkNames = 0
+	if _notice := req.FormValue("notice"); _notice == "0" {
+		msg.LinkNames = 1
 	}
 	select {
 	case ch <- msg:
