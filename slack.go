@@ -25,6 +25,7 @@ type SlackMessage struct {
 	IconEmoji string `json:"icon_emoji,omitempty"`
 	IconURL   string `json:"icon_url,omitempty"`
 	Username  string `json:"username"`
+	LinkNames int    `json:"link_names,omitempty"`
 }
 
 type SlackMessageChan chan SlackMessage
@@ -63,6 +64,10 @@ func (ch SlackMessageChan) PostMsgr(req *http.Request) {
 		Username:  username,
 		IconEmoji: req.FormValue("icon_emoji"),
 		IconURL:   req.FormValue("icon_url"),
+		LinkNames: 1,
+	}
+	if _notice := req.FormValue("notice"); _notice == "1" {
+		msg.LinkNames = 0
 	}
 	select {
 	case ch <- msg:
