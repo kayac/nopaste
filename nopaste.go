@@ -147,7 +147,8 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	switch n.Type {
 	case "SubscriptionConfirmation", "Notification":
 		if n.Type == "SubscriptionConfirmation" {
-			s := NewSNS()
+			region, _ := getRegionFromARN(n.TopicArn)
+			s := NewSNS(region)
 			_, err := s.ConfirmSubscriptionFromHttp(n, "no")
 			if err != nil {
 				log.Println(err)
