@@ -41,6 +41,18 @@ channels:
 
 nopaste runs http server on `http://#{listen}/np`.
 
+Amazon SNS http endpoint
+-------
+
+nopaste can accept Amazon SNS notification messages.
+
+Set environment variables.
+
+- `AWS_ACCESS_KEY_ID=XXXXXXXXXX`
+- `AWS_SECRET_ACCESS_KEY=yyyyyyyyyyy`
+
+Add a SNS topic http(s) endpoint to `http://example.com/np/amazon-sns/{channel_name}?key={message key}`.
+
 LICENCE
 -------
 

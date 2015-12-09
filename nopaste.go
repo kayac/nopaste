@@ -165,9 +165,18 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		out.WriteString(n.TopicArn)
 		out.WriteString("\n")
 		json.Indent(&out, []byte(n.Message), "", "  ")
+
+		subject := n.Subject
+		if key := req.FormValue("key"); key != "" {
+			var m map[string]interface{}
+			json.Unmarshal([]byte(n.Message), &m)
+			if v, found := m[key]; found {
+				subject = fmt.Sprintf("%s %s", subject, v)
+			}
+		}
 		np := nopasteContent{
 			Text:      out.String(),
-			Summary:   n.Subject,
+			Summary:   subject,
 			Notice:    "",
 			Channel:   "#" + channel,
 			IconEmoji: ":amazonsns:",
