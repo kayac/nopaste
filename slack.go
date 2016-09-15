@@ -45,6 +45,10 @@ func (ch SlackMessageChan) PostNopaste(np nopasteContent, url string) {
 		Text:      text,
 		IconEmoji: np.IconEmoji,
 		IconURL:   np.IconURL,
+		LinkNames: 0,
+	}
+	if _notice := req.FormValue("notice"); _notice == "0" {
+		msg.LinkNames = 1
 	}
 	select {
 	case ch <- msg:
