@@ -1,5 +1,6 @@
 GIT_VER := $(shell git describe --tags)
 DATE := $(shell date +%Y-%m-%dT%H:%M:%S%z)
+export GO111MODULE := on
 
 .PHONY: test get-deps binary install clean
 test:
@@ -22,4 +23,4 @@ all:
 	cd cmd/irc-msgr && go build
 
 client:
-	cd cmd/nopaste-cli && go build -ldflags "-X main.Endpoint $(ENDPOINT)"
+	cd cmd/nopaste-cli && go build -ldflags "-X main.Endpoint=$(ENDPOINT)"
