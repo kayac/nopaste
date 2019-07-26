@@ -45,7 +45,7 @@ func (ch IRCMessageChan) PostNopaste(np nopasteContent, url string) {
 	select {
 	case ch <- msg:
 	default:
-		log.Println("Can't send msg to IRC")
+		log.Println("[warn] Can't send msg to IRC")
 	}
 }
 
@@ -61,12 +61,12 @@ func (ch IRCMessageChan) PostMsgr(req *http.Request) {
 	select {
 	case ch <- msg:
 	default:
-		log.Println("Can't send msg to IRC")
+		log.Println("[warn] Can't send msg to IRC")
 	}
 }
 
 func RunIRCAgent(c *Config, ch chan IRCMessage) {
-	log.Println("running irc agent")
+	log.Println("[info] running irc agent")
 	for {
 		agent := irc.IRC(c.IRC.Nick, c.IRC.Nick)
 		agent.UseTLS = c.IRC.Secure
@@ -74,7 +74,7 @@ func RunIRCAgent(c *Config, ch chan IRCMessage) {
 		addr := fmt.Sprintf("%s:%d", c.IRC.Host, c.IRC.Port)
 		err := agent.Connect(addr)
 		if err != nil {
-			log.Println(err)
+			log.Println("[warn]", err)
 			time.Sleep(10 * time.Second)
 			continue
 		}
@@ -94,7 +94,7 @@ func sendMsgToIRC(c *Config, agent *irc.Connection, ch chan IRCMessage, done cha
 			return
 		case msg := <-ch:
 			if _, ok := joined[msg.Channel]; !ok {
-				log.Println("join", msg.Channel)
+				log.Println("[info] join", msg.Channel)
 				agent.Join(msg.Channel)
 				joined[msg.Channel] = make(chan IRCMessage, MsgBufferLen)
 				go sendMsgToIRCChannel(agent, joined[msg.Channel], done)
@@ -103,7 +103,7 @@ func sendMsgToIRC(c *Config, agent *irc.Connection, ch chan IRCMessage, done cha
 			select {
 			case joined[msg.Channel] <- msg:
 			default:
-				log.Println("Can't send msg to IRC. Channel buffer flooding.")
+				log.Println("[warn] Can't send msg to IRC. Channel buffer flooding.")
 			}
 		}
 	}
@@ -132,7 +132,7 @@ func throttle(last time.Time, window time.Duration) {
 	diff := now.Sub(last)
 	if diff < window {
 		// throttle
-		log.Println("throttled. sleeping", window-diff)
+		log.Println("[info] throttled. sleeping", window-diff)
 		time.Sleep(window - diff)
 	}
 }

@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
+	"time"
 
-	"github.com/crowdmob/goamz/sns"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
 )
 
 const Root = "/np"
@@ -85,7 +85,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		return
 	}
 	if err := tmpl.ExecuteTemplate(w, "index", config); err != nil {
-		log.Println(err)
+		log.Println("[warn]", err)
 		serverError(w, 500)
 	}
 }
@@ -101,9 +101,20 @@ func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		rootHandler(w, req, chs)
 		return
 	}
-	f, err := os.Open(config.DataFilePath(id))
-	if err != nil {
-		log.Println(err)
+
+	var f io.ReadCloser
+	var err error
+	for _, s := range config.Storages() {
+		if _f, _err := s.Load(id); _err == nil {
+			log.Println("[debug] loaded from", s)
+			f, err = _f, _err
+			break
+		} else {
+			err = _err
+		}
+	}
+	if err != nil || f == nil {
+		log.Println("[warn]", err)
 		http.NotFound(w, req)
 		return
 	}
@@ -117,11 +128,12 @@ func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	}
 	data := []byte(np.Text)
 	hex := fmt.Sprintf("%x", md5.Sum(data))
-	id := hex[0:10]
-	log.Println("save", id)
-	err := ioutil.WriteFile(config.DataFilePath(id), data, 0644)
+	id := hex[0:10] + ".txt"
+	log.Println("[info] save", id)
+
+	err := config.Storages()[0].Save(id, data)
 	if err != nil {
-		log.Println(err)
+		log.Println("[warn]", err)
 		return Root, 500
 	}
 	if strings.Index(np.Channel, "#") == 0 {
@@ -140,23 +152,43 @@ func serverError(w http.ResponseWriter, code int) {
 	http.Error(w, http.StatusText(code), code)
 }
 
+// https://docs.aws.amazon.com/sns/latest/dg/json-formats.html
+type HttpNotification struct {
+	Type             string    `json:"Type"`
+	MessageId        string    `json:"MessageId"`
+	Token            string    `json:"Token" optional` // Only for subscribe and unsubscribe
+	TopicArn         string    `json:"TopicArn"`
+	Subject          string    `json:"Subject" optional` // Only for Notification
+	Message          string    `json:"Message"`
+	SubscribeURL     string    `json:"SubscribeURL" optional` // Only for subscribe and unsubscribe
+	Timestamp        time.Time `json:"Timestamp"`
+	SignatureVersion string    `json:"SignatureVersion"`
+	Signature        string    `json:"Signature"`
+	SigningCertURL   string    `json:"SigningCertURL"`
+	UnsubscribeURL   string    `json:"UnsubscribeURL" optional` // Only for notifications
+}
+
 func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	if req.Method != "POST" {
 		serverError(w, 400)
 		return
 	}
-	var n *sns.HttpNotification
+	var n HttpNotification
 	dec := json.NewDecoder(req.Body)
 	dec.Decode(&n)
-	log.Println("sns", n.Type, n.TopicArn, n.Subject)
+	log.Println("[info] sns", n.Type, n.TopicArn, n.Subject)
 	switch n.Type {
 	case "SubscriptionConfirmation", "Notification":
 		if n.Type == "SubscriptionConfirmation" {
 			region, _ := getRegionFromARN(n.TopicArn)
-			s := NewSNS(region)
-			_, err := s.ConfirmSubscriptionFromHttp(n, "no")
+			snsSvc := NewSNS(region)
+			_, err := snsSvc.ConfirmSubscription(&sns.ConfirmSubscriptionInput{
+				Token:                     aws.String(n.Token),
+				TopicArn:                  aws.String(n.TopicArn),
+				AuthenticateOnUnsubscribe: aws.String("true"),
+			})
 			if err != nil {
-				log.Println(err)
+				log.Println("[warn]", err)
 				break
 			}
 		}
@@ -169,7 +201,9 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		out.WriteString(n.Type)
 		out.WriteString(n.TopicArn)
 		out.WriteString("\n")
-		json.Indent(&out, []byte(n.Message), "", "  ")
+		if err := json.Indent(&out, []byte(n.Message), "", "  "); err != nil {
+			out.WriteString(n.Message) // invalid JSON
+		}
 
 		subject := n.Subject
 		if key := req.FormValue("key"); key != "" {

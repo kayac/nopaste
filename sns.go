@@ -2,27 +2,18 @@ package nopaste
 
 import (
 	"errors"
-	"os"
 	"strings"
 
-	"github.com/crowdmob/goamz/aws"
-	"github.com/crowdmob/goamz/sns"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sns"
 )
 
-func NewSNS(r string) *sns.SNS {
-	auth := aws.Auth{
-		AccessKey: os.Getenv("AWS_ACCESS_KEY_ID"),
-		SecretKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
-	}
-	if r == "" {
-		r = os.Getenv("AWS_REGION")
-	}
-	region := aws.GetRegion(r)
-	s, err := sns.New(auth, region)
-	if err != nil {
-		panic(err)
-	}
-	return s
+func NewSNS(region string) *sns.SNS {
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	}))
+	return sns.New(sess)
 }
 
 func getRegionFromARN(arn string) (string, error) {

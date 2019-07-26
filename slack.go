@@ -50,7 +50,7 @@ func (ch SlackMessageChan) PostNopaste(np nopasteContent, url string) {
 	select {
 	case ch <- msg:
 	default:
-		log.Println("Can't send msg to Slack")
+		log.Println("[warn] Can't send msg to Slack")
 	}
 }
 
@@ -73,7 +73,7 @@ func (ch SlackMessageChan) PostMsgr(req *http.Request) {
 	select {
 	case ch <- msg:
 	default:
-		log.Println("Can't send msg to Slack")
+		log.Println("[warn] Can't send msg to Slack")
 	}
 }
 
@@ -86,7 +86,7 @@ func (a *SlackAgent) Post(m SlackMessage) error {
 	payload, _ := json.Marshal(&m)
 	v := url.Values{}
 	v.Set("payload", string(payload))
-	log.Println("post to slack", a, string(payload))
+	log.Println("[debug] post to slack", a, string(payload))
 	resp, err := a.client.PostForm(a.WebhookURL, v)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (a *SlackAgent) Post(m SlackMessage) error {
 }
 
 func RunSlackAgent(c *Config, ch chan SlackMessage) {
-	log.Println("runing slack agent")
+	log.Println("[info] runing slack agent")
 	joined := make(map[string]chan SlackMessage)
 	agent := &SlackAgent{
 		WebhookURL: c.Slack.WebhookURL,
@@ -119,7 +119,7 @@ func RunSlackAgent(c *Config, ch chan SlackMessage) {
 			select {
 			case joined[msg.Channel] <- msg:
 			default:
-				log.Println("Can't send msg to Slack. Channel buffer flooding.")
+				log.Println("[warn] Can't send msg to Slack. Channel buffer flooding.")
 			}
 		}
 	}
@@ -143,7 +143,7 @@ func sendMsgToSlackChannel(agent *SlackAgent, ch chan SlackMessage) {
 				backoff = int(math.Min(float64(backoff)*2, SlackMaxBackOff))
 				d, _ := time.ParseDuration(fmt.Sprintf("%ds", backoff))
 				ignoreUntil = lastPostedAt.Add(d)
-				log.Println(err, msg.Channel, "will be ignored until", ignoreUntil)
+				log.Println("[warn]", err, msg.Channel, "will be ignored until", ignoreUntil)
 			} else if !ignoreUntil.Equal(Epoch) {
 				ignoreUntil = Epoch
 				backoff = SlackInitialBackOff

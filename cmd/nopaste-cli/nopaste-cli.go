@@ -36,6 +36,10 @@ func main() {
 	flag.BoolVar(&useAuth, "u", false, "use auth from pit")
 	flag.Parse()
 
+	if os.Getenv("NOPASTE") != "" {
+		Endpoint = os.Getenv("NOPASTE")
+	}
+
 	// get password if use_auth specified
 	if useAuth {
 		u, err := url.Parse(Endpoint)
