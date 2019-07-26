@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/crowdmob/goamz/sns"
@@ -85,7 +83,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		return
 	}
 	if err := tmpl.ExecuteTemplate(w, "index", config); err != nil {
-		log.Println(err)
+		log.Println("[warn]", err)
 		serverError(w, 500)
 	}
 }
@@ -101,9 +99,20 @@ func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		rootHandler(w, req, chs)
 		return
 	}
-	f, err := os.Open(config.DataFilePath(id))
-	if err != nil {
-		log.Println(err)
+
+	var f io.ReadCloser
+	var err error
+	for _, s := range config.Storages() {
+		if _f, _err := s.Load(id); _err == nil {
+			log.Println("[debug] loaded from", s)
+			f, err = _f, _err
+			break
+		} else {
+			err = _err
+		}
+	}
+	if err != nil || f == nil {
+		log.Println("[warn]", err)
 		http.NotFound(w, req)
 		return
 	}
@@ -117,11 +126,12 @@ func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	}
 	data := []byte(np.Text)
 	hex := fmt.Sprintf("%x", md5.Sum(data))
-	id := hex[0:10]
-	log.Println("save", id)
-	err := ioutil.WriteFile(config.DataFilePath(id), data, 0644)
+	id := hex[0:10] + ".txt"
+	log.Println("[info] save", id)
+
+	err := config.Storages()[0].Save(id, data)
 	if err != nil {
-		log.Println(err)
+		log.Println("[warn]", err)
 		return Root, 500
 	}
 	if strings.Index(np.Channel, "#") == 0 {
@@ -148,7 +158,7 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	var n *sns.HttpNotification
 	dec := json.NewDecoder(req.Body)
 	dec.Decode(&n)
-	log.Println("sns", n.Type, n.TopicArn, n.Subject)
+	log.Println("[info] sns", n.Type, n.TopicArn, n.Subject)
 	switch n.Type {
 	case "SubscriptionConfirmation", "Notification":
 		if n.Type == "SubscriptionConfirmation" {
@@ -156,7 +166,7 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			s := NewSNS(region)
 			_, err := s.ConfirmSubscriptionFromHttp(n, "no")
 			if err != nil {
-				log.Println(err)
+				log.Println("[warn]", err)
 				break
 			}
 		}
@@ -169,7 +179,9 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		out.WriteString(n.Type)
 		out.WriteString(n.TopicArn)
 		out.WriteString("\n")
-		json.Indent(&out, []byte(n.Message), "", "  ")
+		if err := json.Indent(&out, []byte(n.Message), "", "  "); err != nil {
+			out.WriteString(n.Message) // invalid JSON
+		}
 
 		subject := n.Subject
 		if key := req.FormValue("key"); key != "" {
