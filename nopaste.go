@@ -9,8 +9,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/crowdmob/goamz/sns"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
 )
 
 const Root = "/np"
@@ -150,12 +152,28 @@ func serverError(w http.ResponseWriter, code int) {
 	http.Error(w, http.StatusText(code), code)
 }
 
+// https://docs.aws.amazon.com/sns/latest/dg/json-formats.html
+type HttpNotification struct {
+	Type             string    `json:"Type"`
+	MessageId        string    `json:"MessageId"`
+	Token            string    `json:"Token" optional` // Only for subscribe and unsubscribe
+	TopicArn         string    `json:"TopicArn"`
+	Subject          string    `json:"Subject" optional` // Only for Notification
+	Message          string    `json:"Message"`
+	SubscribeURL     string    `json:"SubscribeURL" optional` // Only for subscribe and unsubscribe
+	Timestamp        time.Time `json:"Timestamp"`
+	SignatureVersion string    `json:"SignatureVersion"`
+	Signature        string    `json:"Signature"`
+	SigningCertURL   string    `json:"SigningCertURL"`
+	UnsubscribeURL   string    `json:"UnsubscribeURL" optional` // Only for notifications
+}
+
 func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	if req.Method != "POST" {
 		serverError(w, 400)
 		return
 	}
-	var n *sns.HttpNotification
+	var n HttpNotification
 	dec := json.NewDecoder(req.Body)
 	dec.Decode(&n)
 	log.Println("[info] sns", n.Type, n.TopicArn, n.Subject)
@@ -163,8 +181,12 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	case "SubscriptionConfirmation", "Notification":
 		if n.Type == "SubscriptionConfirmation" {
 			region, _ := getRegionFromARN(n.TopicArn)
-			s := NewSNS(region)
-			_, err := s.ConfirmSubscriptionFromHttp(n, "no")
+			snsSvc := NewSNS(region)
+			_, err := snsSvc.ConfirmSubscription(&sns.ConfirmSubscriptionInput{
+				Token:                     aws.String(n.Token),
+				TopicArn:                  aws.String(n.TopicArn),
+				AuthenticateOnUnsubscribe: aws.String("true"),
+			})
 			if err != nil {
 				log.Println("[warn]", err)
 				break
