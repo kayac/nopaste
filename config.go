@@ -4,9 +4,9 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
-	"os"
 	"path"
 
+	goconfig "github.com/kayac/go-config"
 	"gopkg.in/yaml.v2"
 )
 
@@ -73,16 +73,11 @@ func (c *Config) Storages() []Storage {
 
 func LoadConfig(file string) (*Config, error) {
 	log.Println("[info] loading config file", file)
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	content, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
 	c := Config{filePath: file}
-	err = yaml.Unmarshal(content, &c)
+	err := goconfig.LoadWithEnv(&c, file)
+	if err != nil {
+		return nil, err
+	}
 
 	if c.S3 != nil {
 		log.Printf("[info] using S3 storage s3://%s", path.Join(c.S3.Bucket, c.S3.KeyPrefix))

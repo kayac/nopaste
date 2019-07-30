@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/aws/aws-sdk-go v1.21.5
 	github.com/hashicorp/logutils v1.0.0
+	github.com/kayac/go-config v0.1.0
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/thoj/go-ircevent v0.0.0-20190609082534-949efec00844
 	github.com/typester/go-pit v0.0.0-20140823135929-66cd94e0d157

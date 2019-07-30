@@ -1,4 +1,4 @@
-base_url: http://nopaste.example.com
+base_url: '{{must_env "BASE_URL"}}'
 listen: 127.0.0.1:3000
 data_dir: /var/tmp/nopaste
 irc:
