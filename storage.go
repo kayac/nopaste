@@ -2,6 +2,7 @@ package nopaste
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -58,19 +59,22 @@ func NewS3Storage(c *S3Config) *S3Storage {
 }
 
 func (s *S3Storage) Load(name string) (io.ReadCloser, error) {
-	result, err := s.svc.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(s.Bucket),
-		Key:    aws.String(path.Join(s.KeyPrefix, name)),
-	})
-	log.Printf("[debug] load from s3://%s", path.Join(s.Bucket, s.KeyPrefix, name))
-	if err != nil {
-		return nil, err
+	for _, name := range []string{s.objectName(name), name} {
+		result, err := s.svc.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String(s.Bucket),
+			Key:    aws.String(path.Join(s.KeyPrefix, name)),
+		})
+		log.Printf("[debug] load from s3://%s", path.Join(s.Bucket, s.KeyPrefix, name))
+		if err == nil {
+			log.Println("[debug] result", result.GoString())
+			return result.Body, nil
+		}
 	}
-	log.Println("[debug] result", result.GoString())
-	return result.Body, nil
+	return nil, fmt.Errorf("Not found %s and %s", name, s.objectName(name))
 }
 
 func (s *S3Storage) Save(name string, b []byte) error {
+	name = s.objectName(name)
 	input := &s3.PutObjectInput{
 		Body:        aws.ReadSeekCloser(bytes.NewReader(b)),
 		Bucket:      aws.String(s.Bucket),
@@ -80,4 +84,12 @@ func (s *S3Storage) Save(name string, b []byte) error {
 	log.Printf("[debug] save to s3://%s", path.Join(s.Bucket, s.KeyPrefix, name))
 	_, err := s.svc.PutObject(input)
 	return err
+}
+
+func (s *S3Storage) objectName(name string) string {
+	if len(name) > 5 {
+		return path.Join(name[0:2], name[2:4], name[4:])
+	} else {
+		return name
+	}
 }
