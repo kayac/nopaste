@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -128,7 +129,7 @@ func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	}
 	data := []byte(np.Text)
 	hex := fmt.Sprintf("%x", md5.Sum(data))
-	id := hex[0:10] + ".txt"
+	id := hex[0:10]
 	log.Println("[info] save", id)
 
 	err := config.Storages()[0].Save(id, data)
@@ -142,7 +143,7 @@ func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 			ch.PostNopaste(np, url)
 		}
 	}
-	return Root + "/" + id, http.StatusFound
+	return path.Join(Root, id), http.StatusFound
 }
 
 func serverError(w http.ResponseWriter, code int) {
