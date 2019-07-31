@@ -30,13 +30,13 @@ func NewLocalStorage(datadir string) *LocalStorage {
 }
 
 func (s *LocalStorage) Save(name string, data []byte) error {
-	f := filepath.Join(s.DataDir, name)
+	f := filepath.Join(s.DataDir, name+".txt")
 	log.Println("[debug] save to", f)
 	return ioutil.WriteFile(f, data, 0644)
 }
 
 func (s *LocalStorage) Load(name string) (io.ReadCloser, error) {
-	f := filepath.Join(s.DataDir, name)
+	f := filepath.Join(s.DataDir, name+".txt")
 	log.Println("[debug] load from", f)
 	return os.Open(f)
 }
