@@ -186,7 +186,7 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			_, err := snsSvc.ConfirmSubscription(&sns.ConfirmSubscriptionInput{
 				Token:                     aws.String(n.Token),
 				TopicArn:                  aws.String(n.TopicArn),
-				AuthenticateOnUnsubscribe: aws.String("true"),
+				AuthenticateOnUnsubscribe: aws.String("no"),
 			})
 			if err != nil {
 				log.Println("[warn]", err)
