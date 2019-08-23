@@ -119,7 +119,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		http.NotFound(w, req)
 		return
 	}
-	w.Header().Add("Content-Type", "text/plain")
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	io.Copy(w, f)
 }
 
