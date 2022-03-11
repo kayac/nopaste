@@ -199,9 +199,10 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			break
 		}
 		var out bytes.Buffer
-		out.WriteString(n.Type)
-		out.WriteString(n.TopicArn)
-		out.WriteString("\n")
+		fmt.Fprintf(&out, "%s from %s\n", n.Type, n.TopicArn)
+		if subscriptionArn := req.Header.Get("x-amz-sns-subscription-arn"); subscriptionArn != "" {
+			fmt.Fprintf(&out, "Subscribe by %s\n", subscriptionArn)
+		}
 		if err := json.Indent(&out, []byte(n.Message), "", "  "); err != nil {
 			out.WriteString(n.Message) // invalid JSON
 		}
