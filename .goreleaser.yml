@@ -8,6 +8,7 @@ builds:
       - CGO_ENABLED=0
     id: nopaste
     main: cmd/nopaste/main.go
+    binary: nopaste
     goos:
       - darwin
       - linux
@@ -18,6 +19,7 @@ builds:
       - CGO_ENABLED=0
     id: irc-msgr
     main: cmd/irc-msgr/main.go
+    binary: irc-msgr
     goos:
       - darwin
       - linux
@@ -27,6 +29,7 @@ builds:
   - env:
       - CGO_ENABLED=0
     id: nopaste-cli
+    binary: nopaste-cli
     main: cmd/nopaste-cli/nopaste-cli.go
     goos:
       - darwin
