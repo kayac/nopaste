@@ -174,11 +174,30 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		serverError(w, 400)
 		return
 	}
+	p := strings.Split(req.URL.Path, "/")
+	channel := p[len(p)-1]
+	if channel == "" {
+		serverError(w, 404)
+		return
+	}
 	var n HttpNotification
-	dec := json.NewDecoder(req.Body)
-	dec.Decode(&n)
+	b, _ := io.ReadAll(req.Body)
+	if err := json.Unmarshal(b, &n); err != nil {
+		log.Println("[warn]", err)
+	}
 	log.Println("[info] sns", n.Type, n.TopicArn, n.Subject)
 	switch n.Type {
+	case "":
+		// raw message
+		np := nopasteContent{
+			Text:      string(b),
+			Summary:   "Received raw message",
+			Notice:    "",
+			Channel:   "#" + channel,
+			IconEmoji: ":amazonsns:",
+			Nick:      "AmazonSNS",
+		}
+		saveContent(np, chs)
 	case "SubscriptionConfirmation", "Notification":
 		if n.Type == "SubscriptionConfirmation" {
 			region, _ := getRegionFromARN(n.TopicArn)
@@ -192,11 +211,6 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 				log.Println("[warn]", err)
 				break
 			}
-		}
-		p := strings.Split(req.URL.Path, "/")
-		channel := p[len(p)-1]
-		if channel == "" {
-			break
 		}
 		var out bytes.Buffer
 		fmt.Fprintf(&out, "%s from %s\n", n.Type, n.TopicArn)
