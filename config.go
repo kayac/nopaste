@@ -1,9 +1,10 @@
 package nopaste
 
 import (
+	"context"
 	"errors"
-	"io/ioutil"
 	"log"
+	"os"
 	"path"
 
 	goconfig "github.com/kayac/go-config"
@@ -60,7 +61,7 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(c.filePath, data, 0644)
+	return os.WriteFile(c.filePath, data, 0644)
 }
 
 func (c *Config) SetFilePath(path string) {
@@ -71,7 +72,7 @@ func (c *Config) Storages() []Storage {
 	return c.storages
 }
 
-func LoadConfig(file string) (*Config, error) {
+func LoadConfig(ctx context.Context, file string) (*Config, error) {
 	log.Println("[info] loading config file", file)
 	c := Config{filePath: file}
 	err := goconfig.LoadWithEnv(&c, file)
@@ -81,7 +82,11 @@ func LoadConfig(file string) (*Config, error) {
 
 	if c.S3 != nil {
 		log.Printf("[info] using S3 storage s3://%s", path.Join(c.S3.Bucket, c.S3.KeyPrefix))
-		c.storages = append(c.storages, NewS3Storage(c.S3))
+		s, err := NewS3Storage(ctx, c.S3)
+		if err != nil {
+			return nil, err
+		}
+		c.storages = append(c.storages, s)
 	}
 	if c.DataDir != "" {
 		log.Printf("[info] using local storage %s", c.DataDir)

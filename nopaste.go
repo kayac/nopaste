@@ -2,6 +2,7 @@ package nopaste
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -12,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
 const Root = "/np"
@@ -33,9 +34,9 @@ type nopasteContent struct {
 	LinkNames int
 }
 
-func Run(configFile string) error {
+func Run(ctx context.Context, configFile string) error {
 	var err error
-	config, err = LoadConfig(configFile)
+	config, err = LoadConfig(ctx, configFile)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		if _notice := req.FormValue("notice"); _notice == "0" {
 			np.LinkNames = 1
 		}
-		path, code := saveContent(np, chs)
+		path, code := saveContent(req.Context(), np, chs)
 		if code == http.StatusFound {
 			http.Redirect(w, req, path, code)
 		} else {
@@ -108,7 +109,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	var f io.ReadCloser
 	var err error
 	for _, s := range config.Storages() {
-		if _f, _err := s.Load(id); _err == nil {
+		if _f, _err := s.Load(req.Context(), id); _err == nil {
 			log.Println("[debug] loaded from", s)
 			f, err = _f, _err
 			break
@@ -125,7 +126,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 	io.Copy(w, f)
 }
 
-func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
+func saveContent(ctx context.Context, np nopasteContent, chs []MessageChan) (string, int) {
 	if np.Text == "" {
 		log.Println("[warn] empty text")
 		return Root, http.StatusFound
@@ -135,7 +136,7 @@ func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	id := hex[0:10]
 	log.Println("[info] save", id)
 
-	err := config.Storages()[0].Save(id, data)
+	err := config.Storages()[0].Save(ctx, id, data)
 	if err != nil {
 		log.Println("[warn]", err)
 		return Root, 500
@@ -160,19 +161,20 @@ func serverError(w http.ResponseWriter, code int) {
 type HttpNotification struct {
 	Type             string    `json:"Type"`
 	MessageId        string    `json:"MessageId"`
-	Token            string    `json:"Token" optional` // Only for subscribe and unsubscribe
+	Token            string    `json:"Token"` // Only for subscribe and unsubscribe
 	TopicArn         string    `json:"TopicArn"`
-	Subject          string    `json:"Subject" optional` // Only for Notification
+	Subject          string    `json:"Subject"` // Only for Notification
 	Message          string    `json:"Message"`
-	SubscribeURL     string    `json:"SubscribeURL" optional` // Only for subscribe and unsubscribe
+	SubscribeURL     string    `json:"SubscribeURL"` // Only for subscribe and unsubscribe
 	Timestamp        time.Time `json:"Timestamp"`
 	SignatureVersion string    `json:"SignatureVersion"`
 	Signature        string    `json:"Signature"`
 	SigningCertURL   string    `json:"SigningCertURL"`
-	UnsubscribeURL   string    `json:"UnsubscribeURL" optional` // Only for notifications
+	UnsubscribeURL   string    `json:"UnsubscribeURL"` // Only for notifications
 }
 
 func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
+	ctx := req.Context()
 	if req.Method != "POST" {
 		serverError(w, 400)
 		return
@@ -200,17 +202,20 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			IconEmoji: ":amazonsns:",
 			Nick:      "AmazonSNS",
 		}
-		saveContent(np, chs)
+		saveContent(ctx, np, chs)
 	case "SubscriptionConfirmation", "Notification":
 		if n.Type == "SubscriptionConfirmation" {
 			region, _ := getRegionFromARN(n.TopicArn)
-			snsSvc := NewSNS(region)
-			_, err := snsSvc.ConfirmSubscription(&sns.ConfirmSubscriptionInput{
+			snsSvc, err := NewSNS(ctx, region)
+			if err != nil {
+				log.Println("[warn]", err)
+				break
+			}
+			if _, err := snsSvc.ConfirmSubscription(ctx, &sns.ConfirmSubscriptionInput{
 				Token:                     aws.String(n.Token),
 				TopicArn:                  aws.String(n.TopicArn),
 				AuthenticateOnUnsubscribe: aws.String("no"),
-			})
-			if err != nil {
+			}); err != nil {
 				log.Println("[warn]", err)
 				break
 			}
@@ -240,7 +245,7 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 			IconEmoji: ":amazonsns:",
 			Nick:      "AmazonSNS",
 		}
-		saveContent(np, chs)
+		saveContent(ctx, np, chs)
 	}
 	io.WriteString(w, "OK")
 }

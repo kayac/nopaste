@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -23,7 +24,7 @@ func main() {
 	}
 	log.SetOutput(filter)
 
-	err := nopaste.Run(config)
+	err := nopaste.Run(context.Background(), config)
 	if err != nil {
 		panic(err)
 	}

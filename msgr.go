@@ -1,15 +1,16 @@
 package nopaste
 
 import (
+	"context"
 	"log"
 	"net/http"
 )
 
 const MsgrRoot = "/irc-msgr"
 
-func RunMsgr(configFile string) error {
+func RunMsgr(ctx context.Context, configFile string) error {
 	var err error
-	config, err = LoadConfig(configFile)
+	config, err = LoadConfig(ctx, configFile)
 	if err != nil {
 		return err
 	}
