@@ -1,19 +1,20 @@
 package nopaste
 
 import (
+	"context"
 	"errors"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sns"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
-func NewSNS(region string) *sns.SNS {
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	}))
-	return sns.New(sess)
+func NewSNS(region string) *sns.Client {
+	cfg, err := awsConfig.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		panic(err)
+	}
+	return sns.NewFromConfig(cfg)
 }
 
 func getRegionFromARN(arn string) (string, error) {

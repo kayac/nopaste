@@ -2,6 +2,7 @@ package nopaste
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -12,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
 const Root = "/np"
@@ -160,16 +161,16 @@ func serverError(w http.ResponseWriter, code int) {
 type HttpNotification struct {
 	Type             string    `json:"Type"`
 	MessageId        string    `json:"MessageId"`
-	Token            string    `json:"Token" optional` // Only for subscribe and unsubscribe
+	Token            string    `json:"Token"` // Only for subscribe and unsubscribe
 	TopicArn         string    `json:"TopicArn"`
-	Subject          string    `json:"Subject" optional` // Only for Notification
+	Subject          string    `json:"Subject"` // Only for Notification
 	Message          string    `json:"Message"`
-	SubscribeURL     string    `json:"SubscribeURL" optional` // Only for subscribe and unsubscribe
+	SubscribeURL     string    `json:"SubscribeURL"` // Only for subscribe and unsubscribe
 	Timestamp        time.Time `json:"Timestamp"`
 	SignatureVersion string    `json:"SignatureVersion"`
 	Signature        string    `json:"Signature"`
 	SigningCertURL   string    `json:"SigningCertURL"`
-	UnsubscribeURL   string    `json:"UnsubscribeURL" optional` // Only for notifications
+	UnsubscribeURL   string    `json:"UnsubscribeURL"` // Only for notifications
 }
 
 func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
@@ -205,7 +206,7 @@ func snsHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 		if n.Type == "SubscriptionConfirmation" {
 			region, _ := getRegionFromARN(n.TopicArn)
 			snsSvc := NewSNS(region)
-			_, err := snsSvc.ConfirmSubscription(&sns.ConfirmSubscriptionInput{
+			_, err := snsSvc.ConfirmSubscription(context.TODO(), &sns.ConfirmSubscriptionInput{
 				Token:                     aws.String(n.Token),
 				TopicArn:                  aws.String(n.TopicArn),
 				AuthenticateOnUnsubscribe: aws.String("no"),
