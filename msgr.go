@@ -35,10 +35,12 @@ func msgrPostHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan
 	channel := req.FormValue("channel")
 	msg := req.FormValue("msg")
 	if channel == "" || msg == "" || req.Method != "POST" {
+		log.Printf("[warn] invalid request: method=%s channel=%s, msg=%s", req.Method, channel, msg)
 		code := http.StatusBadRequest
 		http.Error(w, http.StatusText(code), code)
 		return
 	}
+	log.Printf("[debug] post to channel=%s, msg=%s", channel, msg)
 	for _, ch := range chs {
 		ch.PostMsgr(req)
 	}

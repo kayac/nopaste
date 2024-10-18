@@ -20,6 +20,8 @@ const Root = "/np"
 
 var config *Config
 
+var Debug = false
+
 type nopasteContent struct {
 	Text      string
 	Channel   string
@@ -125,6 +127,7 @@ func serveHandler(w http.ResponseWriter, req *http.Request, chs []MessageChan) {
 
 func saveContent(np nopasteContent, chs []MessageChan) (string, int) {
 	if np.Text == "" {
+		log.Println("[warn] empty text")
 		return Root, http.StatusFound
 	}
 	data := []byte(np.Text)
