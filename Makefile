@@ -7,7 +7,7 @@ test:
 	go test
 
 build:
-	goreleaser build --snapshot --rm-dist
+	goreleaser build --snapshot --clean
 
 clean:
 	rm -rf dist/*
