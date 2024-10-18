@@ -3,7 +3,7 @@ package nopaste
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -47,6 +47,7 @@ func (ch SlackMessageChan) PostNopaste(np nopasteContent, url string) {
 		IconURL:   np.IconURL,
 		LinkNames: np.LinkNames,
 	}
+	log.Printf("[debug] post to slack: %#v", msg)
 	select {
 	case ch <- msg:
 	default:
@@ -70,6 +71,7 @@ func (ch SlackMessageChan) PostMsgr(req *http.Request) {
 	if _notice := req.FormValue("notice"); _notice == "0" {
 		msg.LinkNames = 1
 	}
+	log.Printf("[debug] post to slack: %#v", msg)
 	select {
 	case ch <- msg:
 	default:
@@ -95,7 +97,7 @@ func (a *SlackAgent) Post(m SlackMessage) error {
 	if resp.StatusCode == http.StatusOK {
 		return nil
 	}
-	if body, err := ioutil.ReadAll(resp.Body); err == nil {
+	if body, err := io.ReadAll(resp.Body); err == nil {
 		return fmt.Errorf("failed post to slack:%s", body)
 	} else {
 		return err
